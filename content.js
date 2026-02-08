@@ -7,6 +7,7 @@ class ChatGPTNavigator {
     this.sidebar = null;
     this.currentConversationId = null;
     this.observer = null;
+    this.displayMode = 'reference'; // 'sequential' or 'reference'
     this.init();
   }
   
@@ -33,6 +34,7 @@ class ChatGPTNavigator {
       <div class="nav-header">
         <h3>📑 Navigator <span id="nav-count" class="nav-count-badge">0</span></h3>
         <div class="nav-header-actions">
+          <button id="nav-mode" class="nav-mode-btn active" title="Reference mode: group by quote threads">⑆</button>
           <button id="nav-refresh" title="Refresh">↻</button>
           <button id="nav-toggle" title="Collapse/Expand">◀</button>
         </div>
@@ -74,6 +76,18 @@ class ChatGPTNavigator {
     refreshBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this.extractExistingMessages();
+    });
+
+    // Mode toggle button
+    const modeBtn = document.getElementById('nav-mode');
+    modeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.displayMode = this.displayMode === 'reference' ? 'sequential' : 'reference';
+      modeBtn.classList.toggle('active', this.displayMode === 'reference');
+      modeBtn.title = this.displayMode === 'reference'
+        ? 'Reference mode: group by quote threads'
+        : 'Sequential mode: original order';
+      this.renderMessages();
     });
     
     // Click header when collapsed to expand
@@ -564,6 +578,28 @@ class ChatGPTNavigator {
     return displayOrder;
   }
 
+  renderSequential(listContainer) {
+    this.messages.forEach((msg, index) => {
+      const item = this.createMessageItem(msg, index, `${index + 1}`);
+      listContainer.appendChild(item);
+    });
+  }
+
+  renderReference(listContainer) {
+    const displayOrder = this.computeDisplayOrder();
+    console.log('[Navigator] displayOrder:', displayOrder.length, 'items from', this.messages.length, 'messages');
+
+    if (displayOrder.length === 0 && this.messages.length > 0) {
+      console.warn('[Navigator] displayOrder empty, falling back to sequential');
+      this.renderSequential(listContainer);
+    } else {
+      displayOrder.forEach(({ msg, displayNumber, originalIndex }) => {
+        const item = this.createMessageItem(msg, originalIndex, displayNumber);
+        listContainer.appendChild(item);
+      });
+    }
+  }
+
   renderMessages() {
     const listContainer = document.getElementById('nav-list');
     if (!listContainer) return;
@@ -571,28 +607,14 @@ class ChatGPTNavigator {
     listContainer.innerHTML = '';
 
     try {
-      const displayOrder = this.computeDisplayOrder();
-      console.log('[Navigator] displayOrder:', displayOrder.length, 'items from', this.messages.length, 'messages');
-
-      if (displayOrder.length === 0 && this.messages.length > 0) {
-        // Fallback: render sequentially if display order computation yields nothing
-        console.warn('[Navigator] displayOrder empty, falling back to sequential');
-        this.messages.forEach((msg, index) => {
-          const item = this.createMessageItem(msg, index, `${index + 1}`);
-          listContainer.appendChild(item);
-        });
+      if (this.displayMode === 'reference') {
+        this.renderReference(listContainer);
       } else {
-        displayOrder.forEach(({ msg, displayNumber, originalIndex }) => {
-          const item = this.createMessageItem(msg, originalIndex, displayNumber);
-          listContainer.appendChild(item);
-        });
+        this.renderSequential(listContainer);
       }
     } catch (e) {
       console.error('[Navigator] renderMessages error, falling back:', e);
-      this.messages.forEach((msg, index) => {
-        const item = this.createMessageItem(msg, index, `${index + 1}`);
-        listContainer.appendChild(item);
-      });
+      this.renderSequential(listContainer);
     }
 
     this.updateStats();
@@ -604,10 +626,12 @@ class ChatGPTNavigator {
     item.dataset.messageId = msg.id;
     item.dataset.index = index;
     
-    // Add class if this message is a child (references a parent prompt)
+    // Add class if this message references a quote
     if (typeof msg.parentIndex === 'number') {
       item.classList.add('has-reference');
-      item.classList.add('is-child');
+      if (this.displayMode === 'reference') {
+        item.classList.add('is-child');
+      }
     } else if (msg.quotedResponseId) {
       item.classList.add('has-reference');
     }

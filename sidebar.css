@@ -138,6 +138,7 @@ html.chatgpt-nav-collapsed #__next {
   gap: 2px;
 }
 
+#nav-mode,
 #nav-refresh,
 #nav-toggle {
   background: none;
@@ -146,26 +147,48 @@ html.chatgpt-nav-collapsed #__next {
   cursor: pointer;
   padding: 3px 6px;
   border-radius: 4px;
-  transition: background 0.2s;
+  transition: background 0.2s, color 0.2s;
   color: #6b7280;
 }
 
+#nav-mode:hover,
 #nav-refresh:hover,
 #nav-toggle:hover {
   background: #e5e7eb;
   color: #111827;
 }
 
+/* Mode button active state */
+#nav-mode.active {
+  color: #3b82f6;
+}
+
+#nav-mode.active:hover {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
 @media (prefers-color-scheme: dark) {
+  #nav-mode,
   #nav-refresh,
   #nav-toggle {
     color: #9ca3af;
   }
 
+  #nav-mode:hover,
   #nav-refresh:hover,
   #nav-toggle:hover {
     background: #374151;
     color: #f9fafb;
+  }
+
+  #nav-mode.active {
+    color: #60a5fa;
+  }
+
+  #nav-mode.active:hover {
+    background: #1e3a5f;
+    color: #93bbfc;
   }
 }
 
