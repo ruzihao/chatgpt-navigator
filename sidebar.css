@@ -338,9 +338,9 @@ html.chatgpt-nav-collapsed #__next {
   padding-left: 9px;
 }
 
-/* Indented child prompt (quotes a previous response) */
+/* Indented child prompt — margin-left set dynamically by depth */
 .nav-item.is-child {
-  margin-left: 18px;
+  /* depth-based margin-left is applied inline */
 }
 
 .nav-item-number {

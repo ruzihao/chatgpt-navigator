@@ -231,7 +231,7 @@ class ChatGPTNavigator {
     
     // Build reference tree
     this.buildReferenceTree(newMessages);
-    
+
     this.messages = newMessages;
     this.renderMessages();
   }
@@ -512,17 +512,20 @@ class ChatGPTNavigator {
       }
     });
 
-    // Second pass: flatten multi-level chains so every child points to a top-level ancestor
-    messages.forEach((msg) => {
+    // Second pass: detect and break circular parent chains
+    messages.forEach((msg, index) => {
       if (typeof msg.parentIndex !== 'number') return;
       const visited = new Set();
-      let current = msg.parentIndex;
+      let current = index;
       while (typeof messages[current]?.parentIndex === 'number') {
-        if (visited.has(current)) break;
+        if (visited.has(current)) {
+          // Circular reference — break the chain
+          msg.parentIndex = undefined;
+          break;
+        }
         visited.add(current);
         current = messages[current].parentIndex;
       }
-      msg.parentIndex = current;
     });
   }
 
@@ -538,31 +541,30 @@ class ChatGPTNavigator {
       }
     });
 
-    // Build ordered list: top-level messages get sequential numbers,
-    // children are inserted right after their parent with sub-numbers
     const displayOrder = [];
-    let mainCounter = 0;
 
-    this.messages.forEach((msg, index) => {
-      if (typeof msg.parentIndex === 'number') {
-        // Skip children here — they are inserted after their parent
-        return;
-      }
+    // Recursively insert a message and its children
+    const insertWithChildren = (msg, originalIndex, prefix, depth) => {
+      msg.displayNumber = prefix;
+      msg.depth = depth;
+      displayOrder.push({ msg, displayNumber: prefix, originalIndex, depth });
 
-      mainCounter++;
-      msg.displayNumber = `${mainCounter}`;
-      displayOrder.push({ msg, displayNumber: `${mainCounter}`, originalIndex: index });
-
-      // Insert children of this message right after it
-      if (childrenByParent[index]) {
+      if (childrenByParent[originalIndex]) {
         let subCounter = 0;
-        childrenByParent[index].forEach(child => {
+        childrenByParent[originalIndex].forEach(child => {
           subCounter++;
-          const dn = `${mainCounter}.${subCounter}`;
-          child.msg.displayNumber = dn;
-          displayOrder.push({ msg: child.msg, displayNumber: dn, originalIndex: child.originalIndex });
+          const childPrefix = `${prefix}.${subCounter}`;
+          insertWithChildren(child.msg, child.originalIndex, childPrefix, depth + 1);
         });
       }
+    };
+
+    // Top-level messages get sequential numbers
+    let mainCounter = 0;
+    this.messages.forEach((msg, index) => {
+      if (typeof msg.parentIndex === 'number') return; // inserted via parent
+      mainCounter++;
+      insertWithChildren(msg, index, `${mainCounter}`, 0);
     });
 
     // Safety net: append any messages not yet in displayOrder
@@ -570,8 +572,7 @@ class ChatGPTNavigator {
     this.messages.forEach((msg, index) => {
       if (!included.has(index)) {
         mainCounter++;
-        msg.displayNumber = `${mainCounter}`;
-        displayOrder.push({ msg, displayNumber: `${mainCounter}`, originalIndex: index });
+        insertWithChildren(msg, index, `${mainCounter}`, 0);
       }
     });
 
@@ -593,8 +594,8 @@ class ChatGPTNavigator {
       console.warn('[Navigator] displayOrder empty, falling back to sequential');
       this.renderSequential(listContainer);
     } else {
-      displayOrder.forEach(({ msg, displayNumber, originalIndex }) => {
-        const item = this.createMessageItem(msg, originalIndex, displayNumber);
+      displayOrder.forEach(({ msg, displayNumber, originalIndex, depth }) => {
+        const item = this.createMessageItem(msg, originalIndex, displayNumber, depth);
         listContainer.appendChild(item);
       });
     }
@@ -620,17 +621,18 @@ class ChatGPTNavigator {
     this.updateStats();
   }
   
-  createMessageItem(msg, index, displayNumber) {
+  createMessageItem(msg, index, displayNumber, depth = 0) {
     const item = document.createElement('div');
     item.className = 'nav-item';
     item.dataset.messageId = msg.id;
     item.dataset.index = index;
-    
+
     // Add class if this message references a quote
     if (typeof msg.parentIndex === 'number') {
       item.classList.add('has-reference');
-      if (this.displayMode === 'reference') {
+      if (this.displayMode === 'reference' && depth > 0) {
         item.classList.add('is-child');
+        item.style.marginLeft = (depth * 16) + 'px';
       }
     } else if (msg.quotedResponseId) {
       item.classList.add('has-reference');
@@ -658,18 +660,18 @@ class ChatGPTNavigator {
         ${attachmentBadges}
       </div>
     `;
-    
+
     // Click to scroll
     item.addEventListener('click', () => {
       this.scrollToMessage(msg.element);
       this.highlightMessage(msg.element);
-      
+
       // Highlight quoted response (without scrolling away from the prompt)
       if (msg.quotedResponseElement) {
         this.highlightMessage(msg.quotedResponseElement, 'reference');
       }
     });
-    
+
     return item;
   }
   
