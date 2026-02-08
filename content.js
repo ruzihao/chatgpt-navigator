@@ -181,7 +181,15 @@ class ChatGPTNavigator {
     return !!element.closest('[role="dialog"], [role="alertdialog"], [data-radix-portal], [class*="modal-"], [class*="Modal"]');
   }
 
+  // Ask the MAIN-world bridge script to resolve quote targets via React fiber
+  resolveQuoteTargets() {
+    document.dispatchEvent(new CustomEvent('chatgpt-nav-resolve-quotes'));
+  }
+
   extractExistingMessages() {
+    // Resolve quote targets via page-bridge (MAIN world React fiber inspection)
+    this.resolveQuoteTargets();
+
     const allUserMessages = document.querySelectorAll('[data-message-author-role="user"]');
     // Filter out messages inside modals/dialogs (e.g. Share popup)
     const userMessages = Array.from(allUserMessages).filter(el => !this.isInsideOverlay(el));
@@ -318,14 +326,15 @@ class ChatGPTNavigator {
     }
 
     // Strategy 4: SVG arrow icon — find the container that wraps quoted content
-    const msgText = element.textContent.trim();
     const svgs = element.querySelectorAll('svg');
     for (const svg of svgs) {
       if (mainText && mainText.contains(svg)) continue;
       let container = svg.parentElement;
       while (container && container !== element) {
         const text = container.textContent.trim();
-        if (text.length > 5 && text.length < msgText.length * 0.8) {
+        // Container must have meaningful text, must not contain the user's main message,
+        // and must not BE the main message (to isolate the quoted portion)
+        if (text.length > 5 && !(mainText && container.contains(mainText)) && container !== mainText) {
           candidates.push(text);
           break;
         }
@@ -340,20 +349,30 @@ class ChatGPTNavigator {
     return candidates[0];
   }
 
-  // Try to find the quoted source message by DOM attributes (data-message-id etc.)
+  // Try to find the quoted source message via bridge-provided attribute or DOM scan
   findQuoteSourceByDOM(element) {
     const allMessages = document.querySelectorAll('[data-message-author-role]');
 
-    // Look for any data attribute containing a UUID-like value inside the quote area
+    // Strategy 1: Use quote target resolved by page-bridge.js (React fiber)
+    const quoteTargetId = element.getAttribute('data-nav-quote-target');
+    if (quoteTargetId) {
+      for (let i = 0; i < allMessages.length; i++) {
+        const msgId = allMessages[i].getAttribute('data-message-id');
+        if (msgId === quoteTargetId) {
+          console.log('[Navigator] Found quote target via React fiber:', quoteTargetId);
+          const preview = allMessages[i].textContent.trim().substring(0, 60);
+          return { id: `resp-${i}`, element: allMessages[i], preview };
+        }
+      }
+    }
+
+    // Strategy 2: Scan child elements for UUID data attributes (fallback)
     const allChildren = element.querySelectorAll('*');
     for (const child of allChildren) {
       for (const attr of child.attributes) {
-        // Skip common non-ID attributes
         if (['class', 'style', 'src', 'href', 'role', 'tabindex', 'aria-label'].includes(attr.name)) continue;
         const val = attr.value;
-        // UUID pattern (ChatGPT uses UUID message IDs)
         if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)) {
-          // Try to find an assistant message with this ID
           for (let i = 0; i < allMessages.length; i++) {
             if (allMessages[i].getAttribute('data-message-author-role') !== 'assistant') continue;
             const msgId = allMessages[i].getAttribute('data-message-id');
@@ -362,7 +381,6 @@ class ChatGPTNavigator {
               const preview = allMessages[i].textContent.trim().substring(0, 60);
               return { id: `resp-${i}`, element: allMessages[i], preview };
             }
-            // Also check parent/wrapper elements for the message ID
             const wrapper = allMessages[i].closest(`[data-message-id="${val}"]`);
             if (wrapper) {
               console.log('[Navigator] Found quote source by wrapper data-message-id:', val);

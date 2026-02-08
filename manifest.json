@@ -17,6 +17,15 @@
         "https://chat.openai.com/*",
         "https://chatgpt.com/*"
       ],
+      "js": ["page-bridge.js"],
+      "run_at": "document_end",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://chat.openai.com/*",
+        "https://chatgpt.com/*"
+      ],
       "js": ["content.js"],
       "css": ["sidebar.css"],
       "run_at": "document_end"
