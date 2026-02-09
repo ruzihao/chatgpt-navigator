@@ -24,6 +24,7 @@ class ChatGPTNavigator {
   start() {
     this.createSidebar();
     this.observeMessages();
+    this.observeConversationChanges();
     this.extractExistingMessages();
   }
   
@@ -183,7 +184,22 @@ class ChatGPTNavigator {
     setTimeout(() => this.extractExistingMessages(), 1000);
     setTimeout(() => this.extractExistingMessages(), 3000);
   }
-  
+
+  observeConversationChanges() {
+    let lastUrl = location.href;
+    setInterval(() => {
+      if (location.href !== lastUrl) {
+        lastUrl = location.href;
+        console.log('[Navigator] Conversation changed:', lastUrl);
+        this.messages = [];
+        this.renderMessages();
+        // Wait for the new conversation to load, then re-extract
+        setTimeout(() => this.extractExistingMessages(), 800);
+        setTimeout(() => this.extractExistingMessages(), 2500);
+      }
+    }, 500);
+  }
+
   isUserMessage(element) {
     if (!element.querySelector) return false;
     return element.matches('[data-message-author-role="user"]') ||
