@@ -1,4 +1,4 @@
-// ChatGPT Navigator - Page Bridge
+// zNavi - Page Bridge
 // Runs in MAIN world to access React fiber internals for quote target resolution.
 
 (function() {

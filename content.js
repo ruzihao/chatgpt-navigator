@@ -1,18 +1,27 @@
-// ChatGPT Command Navigator - Content Script
+// zNavi - Content Script
 // Monitor ChatGPT page, extract user messages, create smart navigation
 
 class ChatGPTNavigator {
+  static DEFAULTS = {
+    fontSize: 12,
+    theme: 'auto',
+    previewLength: 70,
+    highlightDuration: 2000,
+    referenceMode: true
+  };
+
   constructor() {
     this.messages = [];
     this.sidebar = null;
     this.currentConversationId = null;
     this.observer = null;
-    this.displayMode = 'reference'; // 'sequential' or 'reference'
+    this.settings = { ...ChatGPTNavigator.DEFAULTS };
+    this.displayMode = 'reference';
     this.init();
   }
   
   init() {
-    console.log('ChatGPT Command Navigator initialized');
+    console.log('zNavi initialized');
     
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => this.start());
@@ -31,26 +40,71 @@ class ChatGPTNavigator {
   createSidebar() {
     this.sidebar = document.createElement('div');
     this.sidebar.id = 'chatgpt-navigator-sidebar';
+    this.sidebarWidth = 320;
     this.sidebar.innerHTML = `
+      <div class="nav-resize-handle" id="nav-resize-handle"></div>
       <div class="nav-header">
-        <h3>📑 Navigator <span id="nav-count" class="nav-count-badge">0</span></h3>
+        <button id="nav-toggle" class="nav-toggle-btn" title="Collapse sidebar">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="1" width="14" height="14" rx="2"/>
+            <line x1="6" y1="1" x2="6" y2="15"/>
+            <polyline class="nav-toggle-arrow" points="12,6 10,8 12,10"/>
+          </svg>
+        </button>
+        <h3>zNavi <span id="nav-count" class="nav-count-badge">0</span> <button id="nav-refresh" class="nav-inline-btn" title="Refresh">↻</button></h3>
         <div class="nav-header-actions">
-          <button id="nav-mode" class="nav-mode-btn active" title="Reference mode: group by quote threads">⑆</button>
-          <button id="nav-refresh" title="Refresh">↻</button>
-          <button id="nav-toggle" title="Collapse/Expand">◀</button>
+          <label class="nav-mode-toggle" title="ON: Reference mode (group by quote threads)">
+            <input type="checkbox" id="nav-mode" checked />
+            <span class="nav-mode-slider"></span>
+          </label>
+          <button id="nav-search-btn" title="Search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </button>
+          <button id="nav-settings-btn" title="Settings">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
         </div>
       </div>
-      <div class="nav-search">
-        <input type="text" id="nav-search-input" placeholder="Search commands..." />
-        <button id="nav-clear-search">✕</button>
+      <div class="nav-settings-panel" id="nav-settings-panel">
+        <div class="nav-settings-row">
+          <span class="nav-settings-label">Font size</span>
+          <div class="nav-settings-control">
+            <button class="nav-settings-btn-sm" id="nav-font-dec">−</button>
+            <span id="nav-font-val">12</span>
+            <button class="nav-settings-btn-sm" id="nav-font-inc">+</button>
+          </div>
+        </div>
+        <div class="nav-settings-row">
+          <span class="nav-settings-label">Theme</span>
+          <div class="nav-settings-control">
+            <select id="nav-theme-select">
+              <option value="auto">Auto</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="nav-search" id="nav-search-bar">
+        <input type="text" id="nav-search-input" placeholder="Search prompt..." />
+        <button id="nav-clear-search" title="Close search">✕</button>
       </div>
       <div class="nav-list" id="nav-list"></div>
     `;
     
     document.body.appendChild(this.sidebar);
     document.documentElement.classList.add('chatgpt-nav-open');
-    this.applyMainContentMargin(320);
+    this.applyMainContentMargin(this.sidebarWidth);
     this.bindSidebarEvents();
+    this.bindResizeHandle();
+    this.bindSettingsEvents();
+    this.loadSettings();
   }
   
   bindSidebarEvents() {
@@ -60,10 +114,13 @@ class ChatGPTNavigator {
     const toggleSidebar = () => {
       this.sidebar.classList.toggle('collapsed');
       const isCollapsed = this.sidebar.classList.contains('collapsed');
-      toggleBtn.textContent = isCollapsed ? '▶' : '◀';
+      if (isCollapsed) {
+        document.getElementById('nav-settings-panel').classList.remove('open');
+        document.getElementById('nav-search-bar').classList.remove('open');
+      }
       document.documentElement.classList.toggle('chatgpt-nav-open', !isCollapsed);
       document.documentElement.classList.toggle('chatgpt-nav-collapsed', isCollapsed);
-      this.applyMainContentMargin(isCollapsed ? 40 : 320);
+      this.applyMainContentMargin(isCollapsed ? 40 : this.sidebarWidth);
     };
     
     // Click toggle button
@@ -79,15 +136,17 @@ class ChatGPTNavigator {
       this.extractExistingMessages();
     });
 
-    // Mode toggle button
-    const modeBtn = document.getElementById('nav-mode');
-    modeBtn.addEventListener('click', (e) => {
+    // Mode toggle
+    const modeCheckbox = document.getElementById('nav-mode');
+    modeCheckbox.addEventListener('change', (e) => {
       e.stopPropagation();
-      this.displayMode = this.displayMode === 'reference' ? 'sequential' : 'reference';
-      modeBtn.classList.toggle('active', this.displayMode === 'reference');
-      modeBtn.title = this.displayMode === 'reference'
-        ? 'Reference mode: group by quote threads'
-        : 'Sequential mode: original order';
+      this.displayMode = modeCheckbox.checked ? 'reference' : 'sequential';
+      this.settings.referenceMode = modeCheckbox.checked;
+      this.saveSettings();
+      const label = modeCheckbox.closest('.nav-mode-toggle');
+      label.title = modeCheckbox.checked
+        ? 'ON: Reference mode (group by quote threads)'
+        : 'OFF: Sequential mode (original order)';
       this.renderMessages();
     });
     
@@ -98,20 +157,149 @@ class ChatGPTNavigator {
       }
     });
     
-    // Search
+    // Search toggle button
+    const searchBtn = document.getElementById('nav-search-btn');
+    const searchBar = document.getElementById('nav-search-bar');
     const searchInput = document.getElementById('nav-search-input');
+    searchBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = searchBar.classList.toggle('open');
+      if (isOpen) {
+        searchInput.focus();
+      } else {
+        searchInput.value = '';
+        this.filterMessages('');
+      }
+    });
+
+    // Search input
     searchInput.addEventListener('input', (e) => {
       this.filterMessages(e.target.value);
     });
-    
-    // Clear search
+
+    // Clear & close search
     const clearBtn = document.getElementById('nav-clear-search');
     clearBtn.addEventListener('click', () => {
       searchInput.value = '';
       this.filterMessages('');
+      searchBar.classList.remove('open');
     });
   }
   
+  bindResizeHandle() {
+    const handle = document.getElementById('nav-resize-handle');
+    let startX, startWidth;
+
+    const onMouseMove = (e) => {
+      const delta = startX - e.clientX;
+      const newWidth = Math.min(Math.max(startWidth + delta, 200), 600);
+      this.sidebarWidth = newWidth;
+      this.sidebar.style.width = newWidth + 'px';
+      this.applyMainContentMargin(newWidth);
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      this.sidebar.style.transition = 'width 0.3s ease';
+    };
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      startX = e.clientX;
+      startWidth = this.sidebar.offsetWidth;
+      this.sidebar.style.transition = 'none';
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+  }
+
+  loadSettings() {
+    try {
+      const saved = localStorage.getItem('zNavi-settings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        this.settings = { ...ChatGPTNavigator.DEFAULTS, ...parsed };
+      }
+    } catch (e) { /* ignore */ }
+
+    this.displayMode = this.settings.referenceMode ? 'reference' : 'sequential';
+
+    // Sync UI controls with loaded settings
+    const fontVal = document.getElementById('nav-font-val');
+    const themeSelect = document.getElementById('nav-theme-select');
+    const modeCheckbox = document.getElementById('nav-mode');
+
+    if (fontVal) fontVal.textContent = this.settings.fontSize;
+    if (themeSelect) themeSelect.value = this.settings.theme;
+    if (modeCheckbox) {
+      modeCheckbox.checked = this.settings.referenceMode;
+      const label = modeCheckbox.closest('.nav-mode-toggle');
+      if (label) label.title = this.settings.referenceMode
+        ? 'ON: Reference mode (group by quote threads)'
+        : 'OFF: Sequential mode (original order)';
+    }
+
+    this.applySettings();
+  }
+
+  saveSettings() {
+    try {
+      localStorage.setItem('zNavi-settings', JSON.stringify(this.settings));
+    } catch (e) { /* ignore */ }
+  }
+
+  applySettings() {
+    // Font size
+    const list = document.getElementById('nav-list');
+    if (list) list.style.fontSize = this.settings.fontSize + 'px';
+
+    // Theme
+    this.sidebar.removeAttribute('data-theme');
+    if (this.settings.theme !== 'auto') {
+      this.sidebar.setAttribute('data-theme', this.settings.theme);
+    }
+  }
+
+  bindSettingsEvents() {
+    const settingsBtn = document.getElementById('nav-settings-btn');
+    const panel = document.getElementById('nav-settings-panel');
+
+    settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      panel.classList.toggle('open');
+    });
+
+    // Font size +/-
+    document.getElementById('nav-font-dec').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.settings.fontSize = Math.max(9, this.settings.fontSize - 1);
+      document.getElementById('nav-font-val').textContent = this.settings.fontSize;
+      this.applySettings();
+      this.saveSettings();
+    });
+    document.getElementById('nav-font-inc').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.settings.fontSize = Math.min(18, this.settings.fontSize + 1);
+      document.getElementById('nav-font-val').textContent = this.settings.fontSize;
+      this.applySettings();
+      this.saveSettings();
+    });
+
+    // Theme
+    document.getElementById('nav-theme-select').addEventListener('change', (e) => {
+      e.stopPropagation();
+      this.settings.theme = e.target.value;
+      this.applySettings();
+      this.saveSettings();
+    });
+
+  }
+
   applyMainContentMargin(width) {
     // Target ChatGPT's main content containers directly
     const selectors = ['main', '#__next', '[class*="ThreadLayout"]', '[class*="conversation-main"]'];
@@ -659,7 +847,8 @@ class ChatGPTNavigator {
       item.classList.add('has-attachment');
     }
 
-    const preview = msg.text.length > 70 ? msg.text.substring(0, 70) + '...' : msg.text;
+    const maxLen = this.settings.previewLength;
+    const preview = msg.text.length > maxLen ? msg.text.substring(0, maxLen) + '...' : msg.text;
 
     const attachmentBadges = msg.attachments
       ? msg.attachments.map(a => {
@@ -717,7 +906,7 @@ class ChatGPTNavigator {
     element.classList.add(className);
     setTimeout(() => {
       element.classList.remove(className);
-    }, 2000);
+    }, this.settings.highlightDuration);
   }
   
   filterMessages(query) {
