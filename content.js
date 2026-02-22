@@ -51,7 +51,7 @@ class ChatGPTNavigator {
             <polyline class="nav-toggle-arrow" points="12,6 10,8 12,10"/>
           </svg>
         </button>
-        <h3>zNavi <span id="nav-count" class="nav-count-badge">0</span> <button id="nav-refresh" class="nav-inline-btn" title="Refresh">↻</button></h3>
+        <h3><svg class="nav-logo" width="18" height="18" viewBox="0 0 128 128"><defs><linearGradient id="znavibg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#3B82F6"/><stop offset="100%" stop-color="#6366F1"/></linearGradient></defs><rect x="4" y="4" width="120" height="120" rx="24" fill="url(#znavibg)"/><g fill="none" stroke="white" stroke-linecap="round"><line x1="28" y1="28" x2="100" y2="28" stroke-width="10"/><circle cx="80" cy="44" r="3" fill="white" stroke="none"/><line x1="88" y1="44" x2="100" y2="44" stroke-width="5"/><circle cx="62" cy="58" r="3" fill="white" stroke="none"/><line x1="70" y1="58" x2="96" y2="58" stroke-width="5"/><circle cx="44" cy="72" r="3" fill="white" stroke="none"/><line x1="52" y1="72" x2="88" y2="72" stroke-width="5"/><circle cx="32" cy="86" r="3" fill="white" stroke="none"/><line x1="40" y1="86" x2="80" y2="86" stroke-width="5"/><line x1="28" y1="100" x2="100" y2="100" stroke-width="10"/></g></svg> zNavi <span id="nav-count" class="nav-count-badge">0</span> <button id="nav-refresh" class="nav-inline-btn" title="Refresh">↻</button></h3>
         <div class="nav-header-actions">
           <label class="nav-mode-toggle" title="ON: Reference mode (group by quote threads)">
             <input type="checkbox" id="nav-mode" checked />
@@ -115,8 +115,11 @@ class ChatGPTNavigator {
       this.sidebar.classList.toggle('collapsed');
       const isCollapsed = this.sidebar.classList.contains('collapsed');
       if (isCollapsed) {
+        this.sidebar.style.width = '';
         document.getElementById('nav-settings-panel').classList.remove('open');
         document.getElementById('nav-search-bar').classList.remove('open');
+      } else {
+        this.sidebar.style.width = this.sidebarWidth + 'px';
       }
       document.documentElement.classList.toggle('chatgpt-nav-open', !isCollapsed);
       document.documentElement.classList.toggle('chatgpt-nav-collapsed', isCollapsed);
@@ -634,7 +637,12 @@ class ChatGPTNavigator {
 
     // Strategy 1: DOM attribute-based lookup (most reliable)
     const domResult = this.findQuoteSourceByDOM(element);
-    if (domResult) return domResult;
+    if (domResult) {
+      // Use the actual quoted snippet from the user message, not the full response
+      const snippet = this.extractQuotedSnippet(element);
+      if (snippet) domResult.preview = snippet.substring(0, 80);
+      return domResult;
+    }
 
     // Strategy 2: Text matching
     const quotedText = this.extractQuotedSnippet(element);
@@ -748,35 +756,30 @@ class ChatGPTNavigator {
     const displayOrder = [];
 
     // Recursively insert a message and its children
-    const insertWithChildren = (msg, originalIndex, prefix, depth) => {
-      msg.displayNumber = prefix;
+    const insertWithChildren = (msg, originalIndex, depth) => {
+      const num = `${originalIndex + 1}`;
+      msg.displayNumber = num;
       msg.depth = depth;
-      displayOrder.push({ msg, displayNumber: prefix, originalIndex, depth });
+      displayOrder.push({ msg, displayNumber: num, originalIndex, depth });
 
       if (childrenByParent[originalIndex]) {
-        let subCounter = 0;
         childrenByParent[originalIndex].forEach(child => {
-          subCounter++;
-          const childPrefix = `${prefix}.${subCounter}`;
-          insertWithChildren(child.msg, child.originalIndex, childPrefix, depth + 1);
+          insertWithChildren(child.msg, child.originalIndex, depth + 1);
         });
       }
     };
 
-    // Top-level messages get sequential numbers
-    let mainCounter = 0;
+    // Top-level messages, children inserted recursively after parent
     this.messages.forEach((msg, index) => {
       if (typeof msg.parentIndex === 'number') return; // inserted via parent
-      mainCounter++;
-      insertWithChildren(msg, index, `${mainCounter}`, 0);
+      insertWithChildren(msg, index, 0);
     });
 
     // Safety net: append any messages not yet in displayOrder
     const included = new Set(displayOrder.map(d => d.originalIndex));
     this.messages.forEach((msg, index) => {
       if (!included.has(index)) {
-        mainCounter++;
-        insertWithChildren(msg, index, `${mainCounter}`, 0);
+        insertWithChildren(msg, index, 0);
       }
     });
 

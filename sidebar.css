@@ -138,7 +138,12 @@ html.chatgpt-nav-collapsed #__next {
   color: #111827;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+}
+
+.nav-logo {
+  flex-shrink: 0;
+  border-radius: 4px;
 }
 
 .nav-count-badge {

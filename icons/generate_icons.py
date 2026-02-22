@@ -1,105 +1,79 @@
 from PIL import Image, ImageDraw
-import os
 
-def create_icon(size):
-    """创建ChatGPT Navigator图标"""
-    # 创建图像（透明背景）
-    img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    
-    # 蓝色圆形背景
-    margin = size // 10
-    draw.ellipse([margin, margin, size - margin, size - margin], 
-                 fill=(59, 130, 246, 255))  # #3B82F6
-    
-    # 白色文档矩形
-    doc_margin = size // 4
-    doc_width = size - 2 * doc_margin
-    doc_height = int(doc_width * 1.2)
-    doc_top = (size - doc_height) // 2
-    draw.rounded_rectangle(
-        [doc_margin, doc_top, doc_margin + doc_width, doc_top + doc_height],
-        radius=size // 20,
-        fill=(255, 255, 255, 255)
-    )
-    
-    # 蓝色内部矩形（代表内容区域）
-    inner_margin = doc_margin + size // 20
-    inner_width = doc_width - size // 10
-    inner_height = doc_height - size // 10
-    inner_top = doc_top + size // 20
-    draw.rounded_rectangle(
-        [inner_margin, inner_top, inner_margin + inner_width, inner_top + inner_height],
-        radius=size // 40,
-        fill=(59, 130, 246, 255)
-    )
-    
-    # 白色列表项（代表命令）
-    item_count = 5 if size >= 48 else 3
-    item_margin = inner_margin + size // 30
-    item_width = inner_width - size // 15
-    item_height = max(2, size // 30)
-    item_spacing = (inner_height - item_count * item_height) // (item_count + 1)
-    
-    for i in range(item_count):
-        item_top = inner_top + item_spacing * (i + 1) + item_height * i
-        # 交替缩进（表示层级）
-        indent = size // 15 if i % 2 == 1 else 0
-        draw.rounded_rectangle(
-            [item_margin + indent, item_top, 
-             item_margin + item_width - indent, item_top + item_height],
-            radius=max(1, size // 60),
-            fill=(255, 255, 255, 255)
-        )
-        
-        # 圆点（列表标记）
-        dot_radius = max(1, size // 40)
-        dot_x = item_margin + indent - dot_radius - 2
-        dot_y = item_top + item_height // 2
-        if dot_x > inner_margin:
-            draw.ellipse(
-                [dot_x - dot_radius, dot_y - dot_radius,
-                 dot_x + dot_radius, dot_y + dot_radius],
-                fill=(255, 255, 255, 255)
-            )
-    
-    # 搜索图标（右下角）
-    if size >= 48:
-        search_size = size // 5
-        search_x = size - margin - search_size
-        search_y = size - margin - search_size
-        
-        # 搜索圈
-        circle_radius = search_size // 3
-        circle_center_x = search_x + circle_radius
-        circle_center_y = search_y + circle_radius
-        draw.ellipse(
-            [circle_center_x - circle_radius, circle_center_y - circle_radius,
-             circle_center_x + circle_radius, circle_center_y + circle_radius],
-            outline=(255, 255, 255, 255),
-            width=max(2, size // 40)
-        )
-        
-        # 搜索柄
-        handle_len = search_size // 3
-        handle_start_x = circle_center_x + int(circle_radius * 0.7)
-        handle_start_y = circle_center_y + int(circle_radius * 0.7)
-        handle_end_x = handle_start_x + handle_len
-        handle_end_y = handle_start_y + handle_len
-        draw.line(
-            [handle_start_x, handle_start_y, handle_end_x, handle_end_y],
-            fill=(255, 255, 255, 255),
-            width=max(2, size // 40)
-        )
-    
-    return img
+RENDER_SIZE = 512
 
-# 生成所有尺寸
+
+def lerp_color(c1, c2, t):
+    return tuple(int(a + (b - a) * t) for a, b in zip(c1, c2))
+
+
+def draw_thick_line(draw, x1, y1, x2, y2, width, fill):
+    draw.line([(x1, y1), (x2, y2)], fill=fill, width=width)
+    r = width // 2
+    draw.ellipse([x1 - r, y1 - r, x1 + r, y1 + r], fill=fill)
+    draw.ellipse([x2 - r, y2 - r, x2 + r, y2 + r], fill=fill)
+
+
+def create_icon_hires():
+    size = RENDER_SIZE
+    s = size / 128.0
+
+    blue1 = (59, 130, 246, 255)
+    blue2 = (99, 102, 241, 255)
+    white = (255, 255, 255, 255)
+
+    margin = int(4 * s)
+    radius = int(24 * s)
+
+    # Gradient background
+    bg = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    bg_draw = ImageDraw.Draw(bg)
+    for y in range(size):
+        for x in range(size):
+            t = (x + y) / (2 * size)
+            bg_draw.point((x, y), fill=lerp_color(blue1, blue2, t))
+
+    mask = Image.new('L', (size, size), 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        [margin, margin, size - margin, size - margin],
+        radius=radius, fill=255,
+    )
+
+    result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    result.paste(bg, mask=mask)
+    draw = ImageDraw.Draw(result)
+
+    # Top bar of Z
+    draw_thick_line(draw, int(28*s), int(28*s), int(100*s), int(28*s), int(10*s), white)
+
+    # Indented list items forming Z diagonal
+    items = [
+        (80, 44, 88, 44, 100, 44),
+        (62, 58, 70, 58, 96, 58),
+        (44, 72, 52, 72, 88, 72),
+        (32, 86, 40, 86, 80, 86),
+    ]
+    dot_r = int(3 * s)
+    line_w = int(5 * s)
+
+    for dot_cx, dot_cy, lx1, ly1, lx2, ly2 in items:
+        cx, cy = int(dot_cx * s), int(dot_cy * s)
+        draw.ellipse([cx - dot_r, cy - dot_r, cx + dot_r, cy + dot_r], fill=white)
+        draw_thick_line(draw, int(lx1*s), int(ly1*s), int(lx2*s), int(ly2*s), line_w, white)
+
+    # Bottom bar of Z
+    draw_thick_line(draw, int(28*s), int(100*s), int(100*s), int(100*s), int(10*s), white)
+
+    return result
+
+
+hires = create_icon_hires()
+
 sizes = [128, 48, 16]
 for size in sizes:
-    img = create_icon(size)
+    img = hires.resize((size, size), Image.LANCZOS)
     filename = f'icon{size}.png'
     img.save(filename, 'PNG')
-    print(f'✓ 生成 {filename} ({size}x{size})')
+    print(f'Generated {filename} ({size}x{size})')
 
-print('\n✅ 所有图标生成完成！')
+print('\nAll icons generated.')
