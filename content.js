@@ -7,7 +7,8 @@ class ChatGPTNavigator {
     theme: 'auto',
     previewLength: 70,
     highlightDuration: 2000,
-    referenceMode: true
+    referenceMode: true,
+    openOnLoad: true
   };
 
   constructor() {
@@ -88,6 +89,15 @@ class ChatGPTNavigator {
               <option value="light">Light</option>
               <option value="dark">Dark</option>
             </select>
+          </div>
+        </div>
+        <div class="nav-settings-row">
+          <span class="nav-settings-label">Open sidebar on load</span>
+          <div class="nav-settings-control">
+            <label class="nav-mode-toggle">
+              <input type="checkbox" id="nav-open-on-load" />
+              <span class="nav-mode-slider"></span>
+            </label>
           </div>
         </div>
       </div>
@@ -247,6 +257,20 @@ class ChatGPTNavigator {
         : 'OFF: Sequential mode (original order)';
     }
 
+    const openOnLoadCheckbox = document.getElementById('nav-open-on-load');
+    if (openOnLoadCheckbox) {
+      openOnLoadCheckbox.checked = this.settings.openOnLoad;
+    }
+
+    // Apply default collapsed state
+    if (!this.settings.openOnLoad) {
+      this.sidebar.classList.add('collapsed');
+      this.sidebar.style.width = '';
+      document.documentElement.classList.remove('chatgpt-nav-open');
+      document.documentElement.classList.add('chatgpt-nav-collapsed');
+      this.applyMainContentMargin(40);
+    }
+
     this.applySettings();
   }
 
@@ -298,6 +322,13 @@ class ChatGPTNavigator {
       e.stopPropagation();
       this.settings.theme = e.target.value;
       this.applySettings();
+      this.saveSettings();
+    });
+
+    // Open on load
+    document.getElementById('nav-open-on-load').addEventListener('change', (e) => {
+      e.stopPropagation();
+      this.settings.openOnLoad = e.target.checked;
       this.saveSettings();
     });
 

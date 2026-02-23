@@ -93,7 +93,8 @@ html.chatgpt-nav-collapsed #__next {
   white-space: nowrap;
 }
 
-#chatgpt-navigator-sidebar.collapsed .nav-header-actions {
+#chatgpt-navigator-sidebar.collapsed .nav-header-actions,
+#chatgpt-navigator-sidebar.collapsed .nav-inline-btn {
   display: none;
 }
 
