@@ -3,14 +3,6 @@
   "name": "zNavi",
   "version": "0.1",
   "description": "Smart navigation index for ChatGPT with topic detection, reference tracking, and quick jump",
-  "permissions": [
-    "storage",
-    "activeTab"
-  ],
-  "host_permissions": [
-    "https://chat.openai.com/*",
-    "https://chatgpt.com/*"
-  ],
   "content_scripts": [
     {
       "matches": [
