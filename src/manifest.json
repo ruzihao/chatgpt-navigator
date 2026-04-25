@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "zNavi",
-  "version": "0.1",
+  "version": "0.2",
   "description": "Smart navigation index for ChatGPT with topic detection, reference tracking, and quick jump",
   "content_scripts": [
     {

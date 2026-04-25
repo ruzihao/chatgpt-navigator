@@ -1,5 +1,79 @@
 # Changelog
 
+## [0.2] - 2026-04-25
+
+### Added — Excerpts feature
+
+A new "research → integrate → re-ask" workflow built on top of the navigator.
+
+- ✏️ **Floating Excerpt button** — select any text on the page and a gradient "Excerpt" button appears near the selection. One click saves it.
+  - Triggers anywhere in page content (assistant replies, user messages, plain page text)
+  - Excludes the sidebar itself and ChatGPT's input box
+  - Auto-hides on selection collapse, scroll, or empty selection
+- 📋 **Excerpts panel** — new "Excerpts" tab in the sidebar header (Navigator / Excerpts toggle)
+  - Each excerpt shows a checkbox, role badge (A / U), creation time, preview text (3-line clamp + "more" expand)
+  - Per-item actions: copy, delete
+  - Per-conversation isolation — excerpts keyed by conversation ID, persist across reloads
+  - De-duplication: identical text within the same conversation is rejected with a toast
+- 🎯 **Drag-to-reorder** — drag any excerpt to rearrange order
+  - Gradient drop indicator (top / bottom edge of target) shows insertion point
+  - Click areas (checkbox / copy / delete / expand) are excluded from drag triggers
+  - Order persists in localStorage
+- 📥 **Send to ChatGPT input**
+  - **Insert** — fill numbered list `1. "..." 2. "..."` into the input (no auto-send)
+  - **Summarize** — fill an integration prompt + numbered excerpts and **auto-click send**
+  - Synthesis prompt instructs the model to integrate excerpts into a unified narrative (not summarize each separately) and respond in the source language
+  - **Append-not-overwrite**: if the input box already has text, the payload is appended (`\n\n` separator) with toast confirmation, preserving the user's draft
+  - Uses `document.execCommand('insertText' / 'insertLineBreak')` for ProseMirror compatibility
+- 🗂 **Export**
+  - **Copy** to clipboard (numbered list, same format as Insert)
+  - **Markdown** — download `.md` file with frontmatter (export time, conversation ID, source URL, count) + blockquote per item
+  - **HTML** — download self-contained styled `.html` file (gradient title, card layout, dark/print media queries)
+  - Filename pattern: `zNavi_excerpts_YYYYMMDD_HHMM.{md,html}`
+- ✅ **Modern checkboxes** — custom-rendered (no native browser styling)
+  - Rounded square outline, brand-gradient fill on check
+  - White SVG checkmark for checked, white horizontal bar for indeterminate (select-all partial)
+  - Hover ring + focus-visible accessibility ring
+- 🎛 **Action toolbar with grouped buttons**
+  - Top toolbar (utility): `All` (3-state: none / some / all + icon) and `Clear` (red on hover, danger style)
+  - Bottom toolbar: `To ChatGPT` group (Insert / Summarize) + `Export` group (Copy / Markdown / HTML)
+  - Solid action buttons vs. ghost utility buttons for visual hierarchy
+  - Group labels (`TO CHATGPT`, `EXPORT`) at fixed 64px width for vertical alignment
+
+### Storage
+
+- New `localStorage` key `zNavi-excerpts` keyed by conversation ID:
+  ```
+  {
+    "<uuid>": [{ id, text, createdAt, conversationId, sourceRole, sourceMessageId }, ...],
+    "__new__": [...]
+  }
+  ```
+- Existing `zNavi-settings` key extended with `excerptsMaxChars`, `excerptPreviewLength`, `activeTab`
+
+### Technical
+
+- All logic implemented in ISOLATED-world content script (`content.js`)
+- No new permissions required (`navigator.clipboard.writeText` works in user-gesture context on https)
+- ChatGPT input detection: `#prompt-textarea` → fallback `form [contenteditable="true"]` → `[contenteditable="true"][data-virtualkeyboard="true"]`
+- Send button detection: `[data-testid="send-button"]:not([disabled])` → fallback `[aria-label*="Send" i]:not([disabled])`
+- Drag-and-drop via native HTML5 (`dragstart` / `dragover` / `drop` / `dragend`) with event delegation on the list container
+- Per-conversation reload triggered by `observeConversationChanges` URL hook
+
+### Bug fixes
+
+- Drag indicator no longer renders on the item being dragged (no-op drop suppression)
+- Bottom toolbar groups now wrap on narrow sidebar widths (`flex-wrap: wrap`)
+- Selection inside ChatGPT's contenteditable input is filtered out (no spurious Excerpt button)
+- Selection inside zNavi's sidebar is filtered out (no recursion)
+
+### Known limitations
+
+- New conversations (URL still pointing at `/c/__new__` placeholder) keep excerpts under the `__new__` key; on first send the URL changes but excerpts are not migrated. MVP-acceptable; revisit later.
+- Summarize during a streaming response: send button selector temporarily fails; toast `Send button not available`. Text remains in the input box.
+
+---
+
 ## [0.1] - 2026-02-08
 
 ### Added

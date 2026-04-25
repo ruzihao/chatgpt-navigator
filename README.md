@@ -2,6 +2,8 @@
 
 Create smart navigation index for ChatGPT conversations with reference tracking, search and quick jump.
 
+> **What's new in v0.2** — full Excerpt workflow: select any text → save → drag to reorder → Insert / Summarize back into ChatGPT, or export as Markdown / HTML / clipboard. See the [Excerpts](#-excerpts-new-in-v02) section below or the [CHANGELOG](CHANGELOG.md#02---2026-04-25).
+
 ## ✨ Features
 
 ### 📑 Smart Command Index
@@ -29,6 +31,34 @@ Create smart navigation index for ChatGPT conversations with reference tracking,
 - ◀▶ Collapsible sidebar with visible tab when collapsed
 - 💫 Smooth animations
 - 🎯 Clean, distraction-free interface
+
+### ✏️ Excerpts (new in v0.2)
+
+A full "research → integrate → re-ask" workflow built on top of the navigator.
+
+**Capture**
+- Select any text on the page → a gradient **Excerpt** button appears next to the selection
+- One click saves it to the new **Excerpts** tab (per-conversation, persisted in localStorage)
+- Excludes the sidebar itself and ChatGPT's input box; ignores selections shorter than 2 characters
+
+**Organize**
+- Each excerpt: checkbox, role badge (A / U), creation time, 3-line preview + "more" expand, copy / delete icons
+- **Drag to reorder** any excerpt — gradient drop indicator shows insertion point
+- 3-state **All** toggle (none / some / all) and red-on-hover **Clear** button
+- Per-conversation isolation; switching conversations swaps the list automatically
+
+**Send back to ChatGPT** (bottom toolbar)
+- **Insert** — fill numbered list `1. "..." 2. "..."` into the input (no auto-send)
+- **Summarize** — fill an integration prompt + numbered excerpts and **auto-click send**. The prompt explicitly asks ChatGPT to weave the excerpts into a unified summary (not item-by-item) and respond in the source language
+- **Append-not-overwrite** — if you've already typed a draft, the payload is appended after `\n\n`; your draft is preserved
+
+**Export**
+- **Copy** to clipboard (numbered list, same format as Insert)
+- **Markdown** — download `.md` with frontmatter (export time, conversation ID, source URL, count) + blockquote per item
+- **HTML** — download self-contained styled `.html` (gradient title, card layout, dark/print media queries)
+- Filename: `zNavi_excerpts_YYYYMMDD_HHMM.{md,html}`
+
+**Privacy** — every excerpt lives in your browser's localStorage. Nothing is sent to any server.
 
 ## 🚀 Installation
 
@@ -195,6 +225,18 @@ Currently no user-configurable settings. Future versions may add:
 
 ## 📝 Changelog
 
+### v0.2 (2026-04-25)
+- ✏️ **Excerpt workflow** — floating "Excerpt" button on text selection
+- 📋 New **Excerpts** tab with per-conversation storage + drag-to-reorder
+- 📥 **Insert** / **Summarize** back into ChatGPT input (Summarize uses an integration prompt and auto-sends)
+- 🪶 **Append-not-overwrite** — preserves any draft already in the input
+- 🗂 Export selected excerpts as **Copy** / **Markdown** / **HTML**
+- ✅ Modern custom-rendered checkboxes (gradient fill, indeterminate state)
+- 🎛 Restructured action toolbar: utility row at top, output groups at bottom
+- 🐛 Fixed drop indicator on the dragged item itself; toolbar wraps on narrow widths
+
+See [CHANGELOG.md](CHANGELOG.md#02---2026-04-25) for full details.
+
 ### v0.1 (2026-02-08)
 - ✨ Initial release
 - 📑 Command index with sequential numbering
@@ -233,5 +275,5 @@ Thanks to ChatGPT for inspiration and assistance!
 ---
 
 **Author**: Howard (Hao Zhong)  
-**Date**: 2026-02-08  
-**Version**: 0.1
+**Latest version**: 0.2 (2026-04-25)  
+**Initial release**: 0.1 (2026-02-08)
